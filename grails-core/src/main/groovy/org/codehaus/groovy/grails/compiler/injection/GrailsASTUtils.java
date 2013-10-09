@@ -459,7 +459,7 @@ public class GrailsASTUtils {
      * @param classNode The class node
      * @param constructorMethod The constructor static method
      */
-    public static void addDelegateConstructor(ClassNode classNode, MethodNode constructorMethod, Map<String, ClassNode> genericsPlaceholders) {
+    public static ConstructorNode addDelegateConstructor(ClassNode classNode, MethodNode constructorMethod, Map<String, ClassNode> genericsPlaceholders) {
         BlockStatement constructorBody = new BlockStatement();
         Parameter[] constructorParams = getRemainingParameterTypes(constructorMethod.getParameters());
         ArgumentListExpression arguments = createArgumentListFromParameters(constructorParams, true, genericsPlaceholders);
@@ -492,6 +492,7 @@ public class GrailsASTUtils {
                 classNode.addConstructor(constructorNode);
             }
             constructorNode.addAnnotation(new AnnotationNode(new ClassNode(GrailsDelegatingConstructor.class)));
+            return constructorNode;
         }
         else {
             // create new constructor, restoring default constructor if there is none
@@ -515,6 +516,7 @@ public class GrailsASTUtils {
                 classNode.addConstructor(new ConstructorNode(Modifier.PUBLIC, new BlockStatement()));
             }
             cn.addAnnotation(new AnnotationNode(new ClassNode(GrailsDelegatingConstructor.class)));
+            return cn;
         }
     }
 

@@ -19,6 +19,7 @@ import grails.artefact.Artefact;
 import grails.artefact.Enhanced;
 import grails.util.GrailsUtil;
 import groovy.lang.Mixin;
+import groovy.transform.CompileStatic;
 
 import java.lang.reflect.Modifier;
 import java.util.HashMap;
@@ -70,6 +71,7 @@ public abstract class AbstractGrailsArtefactTransformer implements GrailsArtefac
     private static final String INSTANCE_PREFIX = "instance";
     private static final String STATIC_PREFIX = "static";
     private static final AnnotationNode AUTO_WIRED_ANNOTATION = new AnnotationNode(new ClassNode(Autowired.class));
+    private static final AnnotationNode COMPILE_STATIC_ANNOTATION = new AnnotationNode(ClassHelper.make(CompileStatic.class));
     private static final ClassNode ENHANCED_CLASS_NODE = new ClassNode(Enhanced.class);
 
     protected static final ClassNode OBJECT_CLASS = new ClassNode(Object.class);
@@ -168,7 +170,7 @@ public abstract class AbstractGrailsArtefactTransformer implements GrailsArtefac
             List<MethodNode> declaredMethods = implementationNode.getMethods();
             for (MethodNode declaredMethod : declaredMethods) {
                 if (GrailsASTUtils.isConstructorMethod(declaredMethod)) {
-                    GrailsASTUtils.addDelegateConstructor(classNode, declaredMethod, genericsPlaceholders);
+                    addCompileStaticAnnotation(GrailsASTUtils.addDelegateConstructor(classNode, declaredMethod, genericsPlaceholders));
                 }
                 else if (isCandidateInstanceMethod(classNode, declaredMethod)) {
                     addDelegateInstanceMethod(classNode, apiInstance, declaredMethod, getMarkerAnnotation(), genericsPlaceholders);
@@ -251,12 +253,19 @@ public abstract class AbstractGrailsArtefactTransformer implements GrailsArtefac
     }
 
     protected void addDelegateInstanceMethod(ClassNode classNode, Expression delegate, MethodNode declaredMethod, AnnotationNode markerAnnotation, Map<String, ClassNode> genericsPlaceholders) {
-        GrailsASTUtils.addDelegateInstanceMethod(classNode, delegate, declaredMethod, getMarkerAnnotation(), true, genericsPlaceholders);
+        addCompileStaticAnnotation(GrailsASTUtils.addDelegateInstanceMethod(classNode, delegate, declaredMethod, getMarkerAnnotation(), true, genericsPlaceholders));
+    }
+
+    protected MethodNode addCompileStaticAnnotation(MethodNode methodNode) {
+        if(methodNode != null) {
+            methodNode.addAnnotation(COMPILE_STATIC_ANNOTATION);
+        }
+        return methodNode;
     }
 
     protected void addDelegateStaticMethod(ClassNode classNode, MethodCallExpression apiLookupMethod,
             MethodNode declaredMethod, Map<String, ClassNode> genericsPlaceholders) {
-        GrailsASTUtils.addDelegateStaticMethod(apiLookupMethod, classNode, declaredMethod, getMarkerAnnotation(), genericsPlaceholders);
+        addCompileStaticAnnotation(GrailsASTUtils.addDelegateStaticMethod(apiLookupMethod, classNode, declaredMethod, getMarkerAnnotation(), genericsPlaceholders));
     }
 
     private boolean isValidArtefactTypeByConvention(ClassNode classNode) {
@@ -312,7 +321,9 @@ public abstract class AbstractGrailsArtefactTransformer implements GrailsArtefac
         elseBlock.addStatement(new ReturnStatement(apiVar));
         methodBody.addStatement(new IfStatement(new BooleanExpression(new BinaryExpression(apiVar, GrailsASTUtils.EQUALS_OPERATOR, GrailsASTUtils.NULL_EXPRESSION)),ifBlock,elseBlock));
         
-        return new MethodNode(methodName, PUBLIC_STATIC_MODIFIER, implementationNode,ZERO_PARAMETERS,null,methodBody);
+        MethodNode methodNode = new MethodNode(methodName, PUBLIC_STATIC_MODIFIER, implementationNode,ZERO_PARAMETERS,null,methodBody);
+        addCompileStaticAnnotation(methodNode);        
+        return methodNode;
     }
 
     protected void addApiLookupFieldAndSetter(ClassNode classNode, ClassNode implementationNode,
@@ -329,7 +340,7 @@ public abstract class AbstractGrailsArtefactTransformer implements GrailsArtefac
                     new ClassExpression(classNode), new ConstantExpression(apiProperty)), Token.newSymbol(Types.EQUAL, 0, 0),
                     new VariableExpression(setterParameter))));
 
-            classNode.addMethod(setterName, Modifier.PUBLIC | Modifier.STATIC, ClassHelper.VOID_TYPE, new Parameter[]{setterParameter}, null, setterBody);
+            addCompileStaticAnnotation(classNode.addMethod(setterName, Modifier.PUBLIC | Modifier.STATIC, ClassHelper.VOID_TYPE, new Parameter[]{setterParameter}, null, setterBody));
         }
     }
 
